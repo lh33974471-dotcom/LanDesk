@@ -325,7 +325,7 @@ def hide_main_window():
         print(f"隐藏窗口失败：{e}")
 
 def exit_app():
-    """优化的退出函数"""
+    """优化的退出函数 - 清理所有残留进程"""
     try:
         global tray_icon, root, msg_notify_window, current_active_connection
         
@@ -360,10 +360,60 @@ def exit_app():
             except:
                 pass
         
-        # 5. 等待一下，确保资源清理
+        # 5. 清理所有残留的被控端进程（关键步骤）
+        try:
+            print("正在清理所有残留的被控端进程...")
+            import subprocess
+            import psutil
+            
+            # 获取当前进程ID
+            current_pid = os.getpid()
+            
+            # 查找所有可能的被控端进程
+            process_names = ['remote_receiver-2_fixed.exe', 'remote_receiver.exe', 'remote_receiver-2.exe']
+            
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    # 跳过当前进程
+                    if proc.info['pid'] == current_pid:
+                        continue
+                    
+                    process_name = proc.info['name'] or ""
+                    cmdline = proc.info['cmdline'] or []
+                    
+                    # 检查进程名或命令行是否包含被控端相关
+                    is_receiver = (
+                        any(name in process_name.lower() for name in process_names) or
+                        any('remote_receiver' in str(cmd).lower() for cmd in cmdline)
+                    )
+                    
+                    if is_receiver:
+                        print(f"终止残留进程: PID={proc.info['pid']}, 名称={process_name}")
+                        proc.terminate()
+                        # 等待进程结束
+                        proc.wait(timeout=3)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+                except Exception as e:
+                    print(f"清理进程时出错: {e}")
+            
+            # 额外使用系统命令清理（Windows）
+            if platform.system() == "Windows":
+                for process_name in process_names:
+                    try:
+                        subprocess.run(['taskkill', '/F', '/IM', process_name], 
+                                     capture_output=True, timeout=5)
+                    except:
+                        pass
+            
+            print("所有残留进程清理完成")
+        except Exception as e:
+            print(f"清理进程时出错: {e}")
+        
+        # 6. 等待一下，确保资源清理
         time.sleep(0.1)
         
-        # 6. 完全退出程序
+        # 7. 完全退出程序
         print("程序即将完全退出...")
         os._exit(0)
             
@@ -908,9 +958,9 @@ def create_gui():
     root.resizable(True, True)
     root.attributes('-topmost', True)
     
-    # 关闭窗口时隐藏到托盘
+    # 关闭窗口时清理资源并退出程序
     def on_close():
-        hide_main_window()
+        exit_app()
         return True
     root.protocol("WM_DELETE_WINDOW", on_close)
 

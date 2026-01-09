@@ -999,9 +999,14 @@ class RemoteControlMainWindow:
         self.ip_entry.pack(side=tk.LEFT, padx=5)
         self.ip_entry.insert(0, "")
 
-        # 新建连接按钮
-        Button(main_frame, text="新建连接窗口", font=("Arial", 12), width=20,
-               command=self.create_new_remote_window).pack(pady=10)
+        # 新建连接按钮 + 回车键绑定
+        self.connect_btn = Button(main_frame, text="新建连接窗口", font=("Arial", 12), width=20,
+                                  command=self.create_new_remote_window)
+        self.connect_btn.pack(pady=10)
+        
+        # 绑定回车键到输入框和按钮
+        self.ip_entry.bind('<Return>', lambda e: self.create_new_remote_window())
+        self.connect_btn.bind('<Return>', lambda e: self.create_new_remote_window())
 
         # 跨平台高DPI适配
         if platform.system() == "Windows":
